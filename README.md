@@ -2,6 +2,8 @@
 
 A responsive React.js application that allows users to search for a city and view its current weather conditions and 5-day forecast using the OpenWeather API.
 
+![React](https://img.shields.io/badge/Framework-React-blue)
+
 ---
 
 ## Features
