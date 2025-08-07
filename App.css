@@ -1,0 +1,70 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  padding: 1rem;
+  text-align: center;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+.light {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.dark {
+  background-color: #1e1e1e;
+  color: #f5f5f5;
+}
+
+.search input {
+  padding: 0.5rem;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+}
+
+.search button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+.weather-info,
+.forecast,
+.history {
+  margin-top: 2rem;
+}
+
+.forecast-grid {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.forecast-day {
+  border: 1px solid #ccc;
+  padding: 1rem;
+  border-radius: 8px;
+  width: 120px;
+}
+
+.error {
+  color: red;
+  font-weight: bold;
+}
+
+.history ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.history li {
+  cursor: pointer;
+  text-decoration: underline;
+  margin: 5px 0;
+}
