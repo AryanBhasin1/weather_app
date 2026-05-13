@@ -77,15 +77,17 @@ export default function App() {
     setError('');
 
     try {
-      // Step 1: Use Geocoding API to convert zip → accurate lat/lon + city name
-      // (the direct /weather?zip= endpoint has a buggy geocoding database)
-      const geoRes = await fetch(
-        `https://api.openweathermap.org/geo/1.0/zip?zip=${trimmed},US&appid=${WEATHER_API_KEY}`
-      );
-      if (!geoRes.ok) throw new Error('Zip code not found. Please check and try again.');
-      const { lat, lon, name: cityName } = await geoRes.json();
+      // Step 1: Zippopotam.us — free, no API key, accurate US zip → city + coordinates
+      const zipRes = await fetch(`https://api.zippopotam.us/us/${trimmed}`);
+      if (!zipRes.ok) throw new Error('Zip code not found. Please check and try again.');
+      const zipData = await zipRes.json();
 
-      // Step 2: Fetch weather + forecast by coordinates — accurate every time
+      const place = zipData.places[0];
+      const cityName = `${place['place name']}, ${place['state abbreviation']}`;
+      const lat = parseFloat(place.latitude);
+      const lon = parseFloat(place.longitude);
+
+      // Step 2: Fetch weather + forecast by coordinates from OpenWeatherMap
       const [wRes, fRes] = await Promise.all([
         fetch(`${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric`),
         fetch(`${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${FORECAST_API_KEY}&units=metric`),
@@ -99,7 +101,7 @@ export default function App() {
       const wData = await wRes.json();
       const fData = await fRes.json();
 
-      // Override the city name with the geocoded one — it's more reliable
+      // Use the Zippopotam city name — always correct
       wData.name = cityName;
 
       setWeather(wData);
