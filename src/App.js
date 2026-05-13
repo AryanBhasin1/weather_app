@@ -62,7 +62,6 @@ export default function App() {
       setZip(last);
       fetchWeather(last);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchWeather(zipCode) {
