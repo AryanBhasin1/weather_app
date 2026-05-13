@@ -77,24 +77,36 @@ export default function App() {
     setError('');
 
     try {
+      // Step 1: Use Geocoding API to convert zip → accurate lat/lon + city name
+      // (the direct /weather?zip= endpoint has a buggy geocoding database)
+      const geoRes = await fetch(
+        `https://api.openweathermap.org/geo/1.0/zip?zip=${trimmed},US&appid=${WEATHER_API_KEY}`
+      );
+      if (!geoRes.ok) throw new Error('Zip code not found. Please check and try again.');
+      const { lat, lon, name: cityName } = await geoRes.json();
+
+      // Step 2: Fetch weather + forecast by coordinates — accurate every time
       const [wRes, fRes] = await Promise.all([
-        fetch(`${BASE_URL}/weather?zip=${trimmed},us&appid=${WEATHER_API_KEY}&units=metric`),
-        fetch(`${BASE_URL}/forecast?zip=${trimmed},us&appid=${FORECAST_API_KEY}&units=metric`),
+        fetch(`${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric`),
+        fetch(`${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${FORECAST_API_KEY}&units=metric`),
       ]);
 
       if (!wRes.ok) {
         const err = await wRes.json();
-        throw new Error(err.message || 'Zip code not found.');
+        throw new Error(err.message || 'Failed to fetch weather.');
       }
 
       const wData = await wRes.json();
       const fData = await fRes.json();
 
+      // Override the city name with the geocoded one — it's more reliable
+      wData.name = cityName;
+
       setWeather(wData);
       setForecast(groupForecastByDay(fData.list));
 
       setHistory((prev) => {
-        const entry = { zip: trimmed, city: wData.name };
+        const entry = { zip: trimmed, city: cityName };
         const filtered = prev.filter((h) => h.zip !== trimmed);
         return [entry, ...filtered].slice(0, 6);
       });
