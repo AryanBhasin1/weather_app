@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 const WEATHER_API_KEY = "97009c1fd1db7b9652102f0d0444a025";
 const FORECAST_API_KEY = "c6fa03b387a9a0615b52862a7470c33b";
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
-// ─── Helper: group forecast list into daily buckets ───────────────────────────
 function groupForecastByDay(list) {
   const days = {};
   list.forEach((item) => {
@@ -30,7 +29,6 @@ function groupForecastByDay(list) {
     }));
 }
 
-// ─── Helper: convert temperature ──────────────────────────────────────────────
 function toF(c) {
   return (c * 9) / 5 + 32;
 }
@@ -38,25 +36,12 @@ function displayTemp(celsius, unit) {
   return unit === 'C' ? Math.round(celsius) : Math.round(toF(celsius));
 }
 
-// ─── WeatherIcon ──────────────────────────────────────────────────────────────
-function WeatherIcon({ icon, alt, size = 64 }) {
-  return (
-    <img
-      src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
-      alt={alt}
-      width={size}
-      height={size}
-      className="weather-icon"
-    />
-  );
-}
-
-// ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [zip, setZip] = useState('');
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [unit, setUnit] = useState('F');
+  const [isDark, setIsDark] = useState(false);
   const [history, setHistory] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('zipHistory')) || [];
@@ -66,30 +51,21 @@ export default function App() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [theme, setTheme] = useState('cool');
 
-  // Persist history
   useEffect(() => {
     localStorage.setItem('zipHistory', JSON.stringify(history));
   }, [history]);
 
-  // Set theme based on temperature
-  useEffect(() => {
-    if (!weather) return;
-    const tempC = weather.main.temp;
-    if (tempC >= 30) setTheme('hot');
-    else if (tempC >= 15) setTheme('warm');
-    else setTheme('cool');
-  }, [weather]);
-
-  // Restore last search on mount
   useEffect(() => {
     const last = localStorage.getItem('lastZip');
-    if (last) fetchWeather(last);
+    if (last) {
+      setZip(last);
+      fetchWeather(last);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchWeather = useCallback(async (zipCode) => {
+  async function fetchWeather(zipCode) {
     const trimmed = (zipCode || zip).trim();
 
     if (!/^\d{5}$/.test(trimmed)) {
@@ -108,7 +84,7 @@ export default function App() {
 
       if (!wRes.ok) {
         const err = await wRes.json();
-        throw new Error(err.message || 'City not found for that zip code.');
+        throw new Error(err.message || 'Zip code not found.');
       }
 
       const wData = await wRes.json();
@@ -117,7 +93,6 @@ export default function App() {
       setWeather(wData);
       setForecast(groupForecastByDay(fData.list));
 
-      // Update history (deduplicated, max 6)
       setHistory((prev) => {
         const entry = { zip: trimmed, city: wData.name };
         const filtered = prev.filter((h) => h.zip !== trimmed);
@@ -126,186 +101,113 @@ export default function App() {
 
       localStorage.setItem('lastZip', trimmed);
     } catch (err) {
-      setError(err.message || 'Failed to fetch weather. Check your zip code and try again.');
+      setError(err.message || 'Failed to fetch weather. Please try again.');
       setWeather(null);
       setForecast([]);
     } finally {
       setLoading(false);
     }
-  }, [zip]);
+  }
 
-  const handleSubmit = (e) => {
+  function handleSubmit(e) {
     e.preventDefault();
     fetchWeather(zip);
-  };
+  }
 
-  const handleHistoryClick = (entry) => {
+  function handleHistoryClick(entry) {
     setZip(entry.zip);
     fetchWeather(entry.zip);
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    localStorage.removeItem('zipHistory');
-  };
+  }
 
   return (
-    <div className={`app theme-${theme}`}>
-      <div className="app-bg" />
+    <div className={`app ${isDark ? 'dark' : 'light'}`}>
+      <h1>Weather App</h1>
 
-      <header className="app-header">
-        <h1 className="app-title">
-          <span className="title-icon">☁</span> WeatherZip
-        </h1>
-        <p className="app-subtitle">Enter a US zip code to get current conditions</p>
-      </header>
-
-      {/* ── Search Form ── */}
-      <form className="search-form" onSubmit={handleSubmit}>
-        <div className="search-row">
+      {/* Search */}
+      <div className="search">
+        <form onSubmit={handleSubmit} style={{ display: 'inline' }}>
           <input
             type="text"
-            className="zip-input"
             value={zip}
             onChange={(e) => setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
-            placeholder="e.g. 75001"
+            placeholder="Enter zip code (e.g. 75001)"
             maxLength={5}
             inputMode="numeric"
-            aria-label="Zip code"
           />
-          <button type="submit" className="search-btn" disabled={loading}>
-            {loading ? <span className="spinner" /> : 'Search'}
+          <button type="submit" disabled={loading}>
+            {loading ? 'Loading...' : 'Search'}
           </button>
-        </div>
+        </form>
 
-        {/* Unit Toggle */}
-        <div className="unit-toggle">
-          <button
-            type="button"
-            className={`unit-btn ${unit === 'F' ? 'active' : ''}`}
-            onClick={() => setUnit('F')}
-          >
-            °F
-          </button>
-          <button
-            type="button"
-            className={`unit-btn ${unit === 'C' ? 'active' : ''}`}
-            onClick={() => setUnit('C')}
-          >
-            °C
-          </button>
-        </div>
-      </form>
+        <button onClick={() => setUnit(unit === 'F' ? 'C' : 'F')}>
+          Switch to °{unit === 'F' ? 'C' : 'F'}
+        </button>
 
-      {/* ── Error ── */}
-      {error && (
-        <div className="error-banner" role="alert">
-          ⚠ {error}
-        </div>
-      )}
+        <button onClick={() => setIsDark(!isDark)}>
+          {isDark ? 'Light Mode' : 'Dark Mode'}
+        </button>
+      </div>
 
-      {/* ── Search History ── */}
-      {history.length > 0 && (
-        <div className="history-section">
-          <div className="history-header">
-            <span className="history-label">Recent</span>
-            <button className="clear-btn" onClick={clearHistory} type="button">
-              Clear
-            </button>
-          </div>
-          <div className="history-chips">
-            {history.map((h) => (
-              <button
-                key={h.zip}
-                className="history-chip"
-                onClick={() => handleHistoryClick(h)}
-                type="button"
-              >
-                <span className="chip-zip">{h.zip}</span>
-                <span className="chip-city">{h.city}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Error */}
+      {error && <p className="error">{error}</p>}
 
-      {/* ── Current Weather Card ── */}
+      {/* Current Weather */}
       {weather && !loading && (
-        <div className="weather-card">
-          <div className="card-location">
-            <h2 className="city-name">{weather.name}</h2>
-            <span className="zip-badge">ZIP {localStorage.getItem('lastZip')}</span>
-          </div>
-
-          <div className="card-main">
-            <div className="temp-block">
-              <span className="temp-value">
-                {displayTemp(weather.main.temp, unit)}°{unit}
-              </span>
-              <span className="feels-like">
-                Feels like {displayTemp(weather.main.feels_like, unit)}°{unit}
-              </span>
-            </div>
-            <div className="icon-block">
-              <WeatherIcon icon={weather.weather[0].icon} alt={weather.weather[0].description} size={96} />
-              <span className="description">
-                {weather.weather[0].description
-                  .split(' ')
-                  .map((w) => w[0].toUpperCase() + w.slice(1))
-                  .join(' ')}
-              </span>
-            </div>
-          </div>
-
-          <div className="card-stats">
-            <div className="stat">
-              <span className="stat-label">High</span>
-              <span className="stat-value">
-                {displayTemp(weather.main.temp_max, unit)}°
-              </span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Low</span>
-              <span className="stat-value">
-                {displayTemp(weather.main.temp_min, unit)}°
-              </span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Humidity</span>
-              <span className="stat-value">{weather.main.humidity}%</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Wind</span>
-              <span className="stat-value">{Math.round(weather.wind.speed * 3.6)} km/h</span>
-            </div>
-          </div>
+        <div className="weather-info">
+          <h2>{weather.name} ({localStorage.getItem('lastZip')})</h2>
+          <img
+            src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
+            alt={weather.weather[0].description}
+          />
+          <p>
+            <strong>{displayTemp(weather.main.temp, unit)}°{unit}</strong> —{' '}
+            {weather.weather[0].description}
+          </p>
+          <p>Feels like: {displayTemp(weather.main.feels_like, unit)}°{unit}</p>
+          <p>
+            High: {displayTemp(weather.main.temp_max, unit)}°{unit} &nbsp;|&nbsp;
+            Low: {displayTemp(weather.main.temp_min, unit)}°{unit}
+          </p>
+          <p>Humidity: {weather.main.humidity}%</p>
+          <p>Wind: {Math.round(weather.wind.speed * 3.6)} km/h</p>
         </div>
       )}
 
-      {/* ── 5-Day Forecast ── */}
+      {/* 5-Day Forecast */}
       {forecast.length > 0 && !loading && (
-        <div className="forecast-section">
-          <h3 className="forecast-title">5-Day Forecast</h3>
+        <div className="forecast">
+          <h3>5-Day Forecast</h3>
           <div className="forecast-grid">
             {forecast.map((day) => (
-              <div key={day.label} className="forecast-card">
-                <span className="forecast-day">{day.label}</span>
-                <WeatherIcon icon={day.icon} alt={day.description} size={48} />
-                <span className="forecast-desc">{day.description}</span>
-                <div className="forecast-temps">
-                  <span className="f-high">{displayTemp(day.high, unit)}°</span>
-                  <span className="f-sep">/</span>
-                  <span className="f-low">{displayTemp(day.low, unit)}°</span>
-                </div>
+              <div key={day.label} className="forecast-day">
+                <p><strong>{day.label}</strong></p>
+                <img
+                  src={`https://openweathermap.org/img/wn/${day.icon}@2x.png`}
+                  alt={day.description}
+                  width={48}
+                />
+                <p>{day.description}</p>
+                <p>H: {displayTemp(day.high, unit)}°{unit}</p>
+                <p>L: {displayTemp(day.low, unit)}°{unit}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <footer className="app-footer">
-        Powered by <a href="https://openweathermap.org" target="_blank" rel="noreferrer">OpenWeather</a>
-      </footer>
+      {/* Search History */}
+      {history.length > 0 && (
+        <div className="history">
+          <h3>Recent Searches</h3>
+          <ul>
+            {history.map((h) => (
+              <li key={h.zip} onClick={() => handleHistoryClick(h)}>
+                {h.zip} — {h.city}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
